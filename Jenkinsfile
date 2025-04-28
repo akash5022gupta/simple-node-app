@@ -14,15 +14,19 @@ pipeline {
                     userRemoteConfigs: [[
                         url: 'https://github.com/akash5022gupta/simple-node-app.git',
                         credentialsId: 'github-token'
-                    ]]
-                ])
+                    ]]])
             }
         }
         
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${DOCKER_IMAGE}:latest ."
+                    try {
+                        sh "docker build -t ${DOCKER_IMAGE}:latest ."
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
                 }
             }
         }
@@ -30,8 +34,13 @@ pipeline {
         stage('Login and Push Docker Image') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
-                        sh "docker push ${DOCKER_IMAGE}:latest"
+                    try {
+                        docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
+                            sh "docker push ${DOCKER_IMAGE}:latest"
+                        }
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
                     }
                 }
             }
@@ -40,10 +49,24 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    sh 'kubectl apply -f k8s/deployment.yaml'
-                    sh 'kubectl apply -f k8s/service.yaml'
+                    try {
+                        sh 'kubectl apply -f k8s/deployment.yaml'
+                        sh 'kubectl apply -f k8s/service.yaml'
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        throw e
+                    }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed. Check the logs for errors.'
         }
     }
 }
