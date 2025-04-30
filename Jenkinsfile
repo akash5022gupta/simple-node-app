@@ -10,7 +10,8 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/akash5022gupta/simple-node-app.git'
+                git branch: 'main', url: 'https://github.com/akash5022gupta/simple-node-app.git'
+
             }
         }
 
