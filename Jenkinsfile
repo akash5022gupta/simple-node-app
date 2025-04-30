@@ -11,13 +11,13 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/akash5022gupta/simple-node-app.git'
-
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
+                    // Build Docker image
                     sh 'docker build -t $DOCKER_IMAGE .'
                 }
             }
@@ -26,6 +26,7 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
+                    // Login to Docker Hub using credentials
                     sh "docker login -u ${DOCKER_CREDENTIALS_USR} -p ${DOCKER_CREDENTIALS_PSW}"
                     sh "docker push $DOCKER_IMAGE"
                 }
@@ -35,16 +36,16 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
-    sh 'aws eks --region us-east-1 update-kubeconfig --name simple-node-eks-cluster'
-}
+                    // Update kubeconfig and deploy to EKS using AWS credentials
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
                                       accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
                                       secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', 
                                       credentialsId: 'aws-credentials']]) {
                         // Securely access AWS credentials
                         sh 'aws eks --region $AWS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME'
-                        sh 'kubectl set image deployment/my-app my-app=$DOCKER_IMAGE --namespace=$KUBERNETES_NAMESPACE'
+                        
+                        // Update Kubernetes deployment with the new Docker image
+                        sh "kubectl set image deployment/my-app my-app=$DOCKER_IMAGE --namespace=$KUBERNETES_NAMESPACE"
                     }
                 }
             }
