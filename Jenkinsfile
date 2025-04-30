@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/yourusername/my-app.git'  // Replace with your GitHub repo URL
+                git 'https://github.com/akash5022gupta/simple-node-app.git'  // Replace with your GitHub repo URL
             }
         }
 
