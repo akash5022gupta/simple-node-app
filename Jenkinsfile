@@ -1,48 +1,33 @@
 pipeline {
     agent any
-
     environment {
-        GITHUB_CREDENTIALS = credentials('github-token')  // GitHub token for repo access
-        DOCKER_IMAGE = 'akash5022gupta/simple-node-app'   // Docker image name
-        AWS_CREDENTIALS = credentials('aws-credentials')  // AWS credentials for deployment
+        DOCKER_IMAGE = "akash5022gupta/simple-node-app:v1"  // Change this to your Docker image name
+        AWS_REGION = 'us-east-1'  // Change this to your AWS region
+        EKS_CLUSTER_NAME = 'simple-node-eks-cluster'  // Change this to your EKS cluster name
+        KUBERNETES_NAMESPACE = 'default'  // Change if you're using a different Kubernetes namespace
+        DOCKER_USER = credentials('akash5022gupta')  // Jenkins Docker Hub Username credential
+        DOCKER_PASSWORD = credentials('Ravneetkaur@321')  // Jenkins Docker Hub Password credential
     }
-
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
-                checkout([$class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/akash5022gupta/simple-node-app.git',
-                        credentialsId: 'github-token'
-                    ]]])
+                git 'https://github.com/yourusername/my-app.git'  // Replace with your GitHub repo URL
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    try {
-                        sh "docker build -t ${DOCKER_IMAGE}:latest ."
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    sh 'docker build -t $DOCKER_IMAGE .'
                 }
             }
         }
 
-        stage('Login and Push Docker Image') {
+        stage('Push Docker Image') {
             steps {
                 script {
-                    try {
-                        docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
-                            sh "docker push ${DOCKER_IMAGE}:latest"
-                        }
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    sh 'docker login -u $DOCKER_USER -p $DOCKER_PASSWORD'
+                    sh 'docker push $DOCKER_IMAGE'
                 }
             }
         }
@@ -50,33 +35,10 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    try {
-                        // Configure AWS CLI with credentials
-                        sh 'aws configure set aws_access_key_id ${AWS_CREDENTIALS_USR}'
-                        sh 'aws configure set aws_secret_access_key ${AWS_CREDENTIALS_PSW}'
-                        sh 'aws configure set region us-west-2'  // Set your desired AWS region
-
-                        // Update kubeconfig for EKS
-                        sh 'aws eks --region us-west-2 update-kubeconfig --name <cluster-name>'
-
-                        // Apply the Kubernetes deployment and service
-                        sh 'kubectl apply -f k8s/deployment.yaml'
-                        sh 'kubectl apply -f k8s/service.yaml'
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        throw e
-                    }
+                    sh 'aws eks --region $AWS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME'
+                    sh 'kubectl set image deployment/my-app my-app=$DOCKER_IMAGE --namespace=$KUBERNETES_NAMESPACE'
                 }
             }
-        }
-    }
-
-    post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed. Check the logs for errors.'
         }
     }
 }
