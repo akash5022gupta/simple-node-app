@@ -1,17 +1,16 @@
 pipeline {
     agent any
     environment {
-        DOCKER_IMAGE = "akash5022gupta/simple-node-app:v1"  // Change this to your Docker image name
-        AWS_REGION = 'us-east-1'  // Change this to your AWS region
-        EKS_CLUSTER_NAME = 'simple-node-eks-cluster'  // Change this to your EKS cluster name
-        KUBERNETES_NAMESPACE = 'default'  // Change if you're using a different Kubernetes namespace
-        DOCKER_USER = credentials('akash5022gupta')  // Jenkins Docker Hub Username credential
-        DOCKER_PASSWORD = credentials('Ravneetkaur@321')  // Jenkins Docker Hub Password credential
+        DOCKER_IMAGE = "akash5022gupta/simple-node-app:v1"
+        AWS_REGION = 'us-east-1'
+        EKS_CLUSTER_NAME = 'simple-node-eks-cluster'
+        KUBERNETES_NAMESPACE = 'default'
+        DOCKER_CREDENTIALS = credentials('docker-hub-credentials')  // Docker Hub credentials
     }
     stages {
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/akash5022gupta/simple-node-app.git'  // Replace with your GitHub repo URL
+                git 'https://github.com/akash5022gupta/simple-node-app.git'
             }
         }
 
@@ -26,8 +25,8 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    sh 'docker login -u $DOCKER_USER -p $DOCKER_PASSWORD'
-                    sh 'docker push $DOCKER_IMAGE'
+                    sh "docker login -u ${DOCKER_CREDENTIALS_USR} -p ${DOCKER_CREDENTIALS_PSW}"
+                    sh "docker push $DOCKER_IMAGE"
                 }
             }
         }
@@ -35,8 +34,14 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 script {
-                    sh 'aws eks --region $AWS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME'
-                    sh 'kubectl set image deployment/my-app my-app=$DOCKER_IMAGE --namespace=$KUBERNETES_NAMESPACE'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', 
+                                      accessKeyVariable: 'AWS_ACCESS_KEY_ID', 
+                                      secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', 
+                                      credentialsId: 'aws-credentials']]) {
+                        // Securely access AWS credentials
+                        sh 'aws eks --region $AWS_REGION update-kubeconfig --name $EKS_CLUSTER_NAME'
+                        sh 'kubectl set image deployment/my-app my-app=$DOCKER_IMAGE --namespace=$KUBERNETES_NAMESPACE'
+                    }
                 }
             }
         }
